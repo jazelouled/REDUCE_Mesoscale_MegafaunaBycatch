@@ -2,18 +2,11 @@
 # REDUCE — MESOSCALE BYCATCH
 # 00_main.R
 #
-# MASTER PIPELINE
+# Master pipeline
 #
-# Run this script from a fresh R session.
-#
-# It:
-#   1. creates the project directory structure
-#   2. checks required inputs
-#   3. runs the complete analysis pipeline
-#
-# All paths are relative to the project root using {here}.
-#
-# No absolute user-specific paths are used.
+# Run from the project root.
+# All paths are handled with {here}.
+# Raw input data are NEVER modified.
 # ============================================================
 
 
@@ -30,20 +23,13 @@ options(
 
 
 # ============================================================
-# 1. REQUIRED PACKAGE FOR PROJECT PATHS
+# 1. REQUIRED PACKAGE
 # ============================================================
 
-if (!requireNamespace(
-  "here",
-  quietly = TRUE
-)) {
-  
+if (!requireNamespace("here", quietly = TRUE)) {
   stop(
-    paste0(
-      "Package 'here' is required.\n\n",
-      "Install it with:\n\n",
-      "install.packages(\"here\")"
-    )
+    "Package 'here' is required. Install it with install.packages('here').",
+    call. = FALSE
   )
 }
 
@@ -55,7 +41,6 @@ library(here)
 # ============================================================
 
 PROJECT_ROOT <- here::here()
-
 
 cat(
   "\n====================================================\n",
@@ -69,136 +54,46 @@ cat(
 
 
 # ============================================================
-# 3. DEFINE DIRECTORY STRUCTURE
+# 3. CREATE PROJECT DIRECTORIES
+#
+# IMPORTANT:
+# Nothing is created inside the BYC raw-data folders.
+# Their original IEO structure is preserved exactly.
 # ============================================================
 
-dirs <- c(
+project_dirs <- c(
   
-  # ----------------------------------------------------------
-  # Scripts
-  # ----------------------------------------------------------
+  here::here("R"),
   
-  here(
-    "R"
-  ),
-  
-  
-  # ----------------------------------------------------------
-  # Input
-  # ----------------------------------------------------------
-  
-  here(
+  here::here(
     "00inputOutput"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00input"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00input",
     "00IEO"
   ),
   
-  
-  # BYC_0002
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0002"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0002",
-    "fishingOperations"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0002",
-    "bycatch"
-  ),
-  
-  
-  # BYC_0003
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0003"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0003",
-    "fishingOperations"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0003",
-    "bycatch"
-  ),
-  
-  
-  # BYC_0004
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0004"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0004",
-    "fishingOperations"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0004",
-    "bycatch"
-  ),
-  
-  
-  # ----------------------------------------------------------
-  # Environmental data
-  # ----------------------------------------------------------
-  
-  here(
+  here::here(
     "00inputOutput",
     "00input",
     "00enviro"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00input",
     "00enviro",
     "eddies"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00input",
     "00enviro",
@@ -206,7 +101,7 @@ dirs <- c(
     "META_DT"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00input",
     "00enviro",
@@ -214,66 +109,56 @@ dirs <- c(
     "META_NRT"
   ),
   
-  
-  # ----------------------------------------------------------
-  # Output
-  # ----------------------------------------------------------
-  
-  here(
+  here::here(
     "00inputOutput",
     "00output"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "00_raw_exploration"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "01_standardised_data"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "02_eddy_data"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "03_matching"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "04_exploration"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "05_models"
   ),
   
-  here(
+  here::here(
     "00inputOutput",
     "00output",
     "figures"
   )
-  
 )
 
 
-# ============================================================
-# 4. CREATE DIRECTORIES
-# ============================================================
-
-for (d in dirs) {
+for (d in project_dirs) {
   
   if (!dir.exists(d)) {
     
@@ -284,165 +169,176 @@ for (d in dirs) {
     )
     
     cat(
-      "Created:",
+      "[CREATED] ",
       d,
-      "\n"
+      "\n",
+      sep = ""
     )
   }
 }
 
 
+# ============================================================
+# 4. DEFINE RAW IEO FILES
+# ============================================================
+
+FILE_0002_FISHING <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0002",
+  "fishingOperations",
+  "Ouled-Cheikh_BYC_0002_PS_MUL_IEO_fishingOperations(in).csv"
+)
+
+FILE_0002_BYCATCH_AGG <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0002",
+  "bycatchAggregated",
+  "Ouled-Cheikh_BYC_0002_PS_MUL_IEO_bycatchAggregated(in).csv"
+)
+
+FILE_0002_BYCATCH_IND <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0002",
+  "bycatchSampledIndividuals",
+  "Ouled-Cheikh_BYC_0002_PS_MUL_IEO_bycatchSampledIndividuals(in).csv"
+)
+
+FILE_0002_META_BYCATCH <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0002",
+  "metadata",
+  "BYC_0002_PS_MUL_IEO_bycatch_variable_explanation(in).csv"
+)
+
+FILE_0002_META_FISHING <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0002",
+  "metadata",
+  "BYC_0002_PS_MUL_IEO_fishingOperations_variable_explanation(in).csv"
+)
+
+
+FILE_0003_FISHING <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0003",
+  "fishingOperations",
+  "Ouled-Cheikh_BYC_0003_LL_MUL_IEO_fishingOperations(in).csv"
+)
+
+FILE_0003_BYCATCH <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0003",
+  "bycatch",
+  "Ouled-Cheikh_BYC_0003_LL_MUL_IEO_bycatch(in).csv"
+)
+
+
+FILE_0004_FISHING <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0004",
+  "fishingOperations",
+  "Ouled-Cheikh_BYC_0004_LL_MUL_IEO_fishingOperations(in).csv"
+)
+
+FILE_0004_BYCATCH <- here::here(
+  "00inputOutput",
+  "00input",
+  "00IEO",
+  "BYC_0004",
+  "bycatch",
+  "Ouled-Cheikh_BYC_0004_LL_MUL_IEO_bycatch(in).csv"
+)
+
+
+# ============================================================
+# 5. CHECK RAW INPUT FILES
+# ============================================================
+
+required_files <- c(
+  
+  BYC_0002_fishingOperations =
+    FILE_0002_FISHING,
+  
+  BYC_0002_bycatchAggregated =
+    FILE_0002_BYCATCH_AGG,
+  
+  BYC_0002_bycatchSampledIndividuals =
+    FILE_0002_BYCATCH_IND,
+  
+  BYC_0002_metadata_bycatch =
+    FILE_0002_META_BYCATCH,
+  
+  BYC_0002_metadata_fishingOperations =
+    FILE_0002_META_FISHING,
+  
+  BYC_0003_fishingOperations =
+    FILE_0003_FISHING,
+  
+  BYC_0003_bycatch =
+    FILE_0003_BYCATCH,
+  
+  BYC_0004_fishingOperations =
+    FILE_0004_FISHING,
+  
+  BYC_0004_bycatch =
+    FILE_0004_BYCATCH
+)
+
+
+files_exist <- file.exists(
+  required_files
+)
+
+
 cat(
-  "\nDirectory structure ready.\n\n"
+  "\n====================================================\n",
+  "RAW INPUT CHECK\n",
+  "====================================================\n\n",
+  sep = ""
 )
 
 
-# ============================================================
-# 5. DEFINE STANDARD PROJECT PATHS
-# ============================================================
-
-INPUT_DIR <- here(
-  "00inputOutput",
-  "00input"
-)
-
-OUTPUT_DIR <- here(
-  "00inputOutput",
-  "00output"
-)
-
-
-IEO_DIR <- here(
-  "00inputOutput",
-  "00input",
-  "00IEO"
-)
-
-
-ENV_DIR <- here(
-  "00inputOutput",
-  "00input",
-  "00enviro"
-)
-
-
-EDDY_DIR <- here(
-  "00inputOutput",
-  "00input",
-  "00enviro",
-  "eddies"
-)
-
-
-# ------------------------------------------------------------
-# IEO datasets
-# ------------------------------------------------------------
-
-BYC0002_DIR <- here(
-  "00inputOutput",
-  "00input",
-  "00IEO",
-  "BYC_0002"
-)
-
-BYC0003_DIR <- here(
-  "00inputOutput",
-  "00input",
-  "00IEO",
-  "BYC_0003"
-)
-
-BYC0004_DIR <- here(
-  "00inputOutput",
-  "00input",
-  "00IEO",
-  "BYC_0004"
-)
-
-
-# ============================================================
-# 6. CHECK FISHING INPUTS
-# ============================================================
-
-required_fishing_dirs <- c(
+for (i in seq_along(required_files)) {
   
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0002",
-    "fishingOperations"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0003",
-    "fishingOperations"
-  ),
-  
-  here(
-    "00inputOutput",
-    "00input",
-    "00IEO",
-    "BYC_0004",
-    "fishingOperations"
+  status <- ifelse(
+    files_exist[i],
+    "[OK]",
+    "[MISSING]"
   )
   
-)
-
-
-has_files <- vapply(
-  
-  required_fishing_dirs,
-  
-  function(x) {
-    
-    length(
-      list.files(
-        x,
-        recursive = TRUE
-      )
-    ) > 0
-    
-  },
-  
-  logical(1)
-  
-)
-
-
-# ============================================================
-# 7. STOP IF RAW FISHING DATA ARE NOT PRESENT
-# ============================================================
-
-if (!all(has_files)) {
-  
-  missing <- required_fishing_dirs[
-    !has_files
-  ]
-  
-  
   cat(
-    "\n====================================================\n",
-    "PROJECT INITIALISED\n",
-    "====================================================\n\n",
+    status,
+    " ",
+    names(required_files)[i],
+    "\n",
     sep = ""
   )
-  
-  
-  cat(
-    "The directory structure has been created successfully.\n\n"
-  )
-  
+}
+
+
+if (!all(files_exist)) {
   
   cat(
-    "Raw fishing-operation data are still missing from:\n\n"
+    "\nMissing files:\n\n"
   )
   
-  
-  for (x in missing) {
+  for (x in required_files[!files_exist]) {
     
     cat(
       "  ",
@@ -452,32 +348,20 @@ if (!all(has_files)) {
     )
   }
   
-  
-  cat(
-    "\nPlace the raw IEO data in these directories and run\n",
-    "00_main.R again.\n\n",
-    sep = ""
-  )
-  
-  
   stop(
-    "Pipeline stopped: raw fishing data not yet available.",
+    "Pipeline stopped because required raw IEO files are missing.",
     call. = FALSE
   )
 }
 
 
+cat(
+  "\nAll required raw IEO files are available.\n"
+)
+
+
 # ============================================================
-# 8. PIPELINE
-# ============================================================
-#
-# Each script must:
-#
-#   - use here::here()
-#   - read only from 00input or previous 00output stages
-#   - write only to its own output directory
-#   - never modify raw data
-#
+# 6. DEFINE PIPELINE
 # ============================================================
 
 pipeline <- c(
@@ -493,24 +377,22 @@ pipeline <- c(
   "04_exploratory_analysis.R",
   
   "05_models.R"
-  
 )
 
 
 # ============================================================
-# 9. RUN AVAILABLE SCRIPTS
-# ============================================================
+# 7. RUN PIPELINE
 #
-# During development, scripts that do not exist yet are
-# reported and skipped.
+# During development:
+# scripts that do not exist yet are skipped.
 #
-# Once the pipeline is final, we can change this behaviour
-# so that a missing script causes the pipeline to stop.
+# Once the workflow is complete, this can be changed so
+# missing scripts stop the pipeline.
 # ============================================================
 
 cat(
   "\n====================================================\n",
-  "RUNNING PIPELINE\n",
+  "PIPELINE\n",
   "====================================================\n\n",
   sep = ""
 )
@@ -518,11 +400,10 @@ cat(
 
 for (script in pipeline) {
   
-  script_path <- here(
+  script_path <- here::here(
     "R",
     script
   )
-  
   
   if (!file.exists(script_path)) {
     
@@ -564,11 +445,11 @@ for (script in pipeline) {
 
 
 # ============================================================
-# 10. FINISHED
+# 8. FINISHED
 # ============================================================
 
 cat(
-  "\n\n====================================================\n",
+  "\n====================================================\n",
   "PIPELINE FINISHED\n",
   "====================================================\n\n",
   sep = ""
