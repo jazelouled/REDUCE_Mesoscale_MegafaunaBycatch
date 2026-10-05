@@ -20,7 +20,10 @@
 #   - NEVER excludes observations
 #   - NEVER creates modelling data
 #
-# It only describes and flags potentially problematic records.
+# It only describes the datasets and flags potentially
+# problematic longline geometries for inspection.
+#
+# P99 flags are diagnostic, NOT automatic exclusions.
 #
 # OUTPUT
 # ------
@@ -39,7 +42,6 @@ packages <- c(
   "tidyr",
   "purrr",
   "stringr",
-  "lubridate",
   "ggplot2",
   "sf",
   "geosphere",
@@ -111,6 +113,7 @@ dir.create(
   recursive = TRUE,
   showWarnings = FALSE
 )
+
 
 dir.create(
   FIG_DIR,
@@ -184,14 +187,11 @@ FILE_0004_BYCATCH <- file.path(
 # ============================================================
 
 analysis_files <- c(
-  
   FILE_0002_FISHING,
   FILE_0002_BYCATCH,
   FILE_0002_INDIVIDUALS,
-  
   FILE_0003_FISHING,
   FILE_0003_BYCATCH,
-  
   FILE_0004_FISHING,
   FILE_0004_BYCATCH
 )
@@ -201,7 +201,7 @@ if (!all(file.exists(analysis_files))) {
   
   stop(
     paste0(
-      "One or more required raw files are missing.\n\n",
+      "One or more required raw files are missing:\n\n",
       paste(
         analysis_files[
           !file.exists(analysis_files)
@@ -275,12 +275,14 @@ cat(
   sep = ""
 )
 
+
 cat(
   "BYC_0003 fishing operations: ",
   nrow(ops_0003_raw),
   "\n",
   sep = ""
 )
+
 
 cat(
   "BYC_0004 fishing operations: ",
@@ -291,50 +293,142 @@ cat(
 
 
 # ============================================================
-# 6. SAVE RAW COLUMN INVENTORY
-#
-# This is extremely useful later when we build script 01.
+# 6. PARSING AUDIT
 # ============================================================
 
-column_inventory <- bind_rows(
+parsing_summary <- tibble::tibble(
   
-  tibble(
+  dataset = c(
+    "BYC_0002",
+    "BYC_0002",
+    "BYC_0002",
+    "BYC_0003",
+    "BYC_0003",
+    "BYC_0004",
+    "BYC_0004"
+  ),
+  
+  table = c(
+    "fishingOperations",
+    "bycatchAggregated",
+    "bycatchSampledIndividuals",
+    "fishingOperations",
+    "bycatch",
+    "fishingOperations",
+    "bycatch"
+  ),
+  
+  parsing_problems = c(
+    nrow(readr::problems(ops_0002_raw)),
+    nrow(readr::problems(bycatch_0002_raw)),
+    nrow(readr::problems(individuals_0002_raw)),
+    nrow(readr::problems(ops_0003_raw)),
+    nrow(readr::problems(bycatch_0003_raw)),
+    nrow(readr::problems(ops_0004_raw)),
+    nrow(readr::problems(bycatch_0004_raw))
+  )
+)
+
+
+readr::write_csv(
+  parsing_summary,
+  file.path(
+    OUTPUT_00,
+    "parsing_summary.csv"
+  )
+)
+
+
+cat(
+  "\nPARSING SUMMARY\n\n"
+)
+
+print(
+  parsing_summary,
+  n = Inf
+)
+
+
+# Save detailed parsing problems when present
+
+raw_objects <- list(
+  BYC_0002_fishingOperations = ops_0002_raw,
+  BYC_0002_bycatchAggregated = bycatch_0002_raw,
+  BYC_0002_bycatchSampledIndividuals = individuals_0002_raw,
+  BYC_0003_fishingOperations = ops_0003_raw,
+  BYC_0003_bycatch = bycatch_0003_raw,
+  BYC_0004_fishingOperations = ops_0004_raw,
+  BYC_0004_bycatch = bycatch_0004_raw
+)
+
+
+for (object_name in names(raw_objects)) {
+  
+  problems_this <- readr::problems(
+    raw_objects[[object_name]]
+  )
+  
+  
+  if (nrow(problems_this) > 0) {
+    
+    readr::write_csv(
+      problems_this,
+      file.path(
+        OUTPUT_00,
+        paste0(
+          "parsing_problems_",
+          object_name,
+          ".csv"
+        )
+      )
+    )
+  }
+}
+
+
+# ============================================================
+# 7. RAW COLUMN INVENTORY
+# ============================================================
+
+column_inventory <- dplyr::bind_rows(
+  
+  tibble::tibble(
     dataset = "BYC_0002",
     table = "fishingOperations",
     variable = names(ops_0002_raw)
   ),
   
-  tibble(
+  tibble::tibble(
     dataset = "BYC_0002",
     table = "bycatchAggregated",
     variable = names(bycatch_0002_raw)
   ),
   
-  tibble(
+  tibble::tibble(
     dataset = "BYC_0002",
     table = "bycatchSampledIndividuals",
     variable = names(individuals_0002_raw)
   ),
   
-  tibble(
+  tibble::tibble(
     dataset = "BYC_0003",
     table = "fishingOperations",
     variable = names(ops_0003_raw)
   ),
   
-  tibble(
+  tibble::tibble(
     dataset = "BYC_0003",
     table = "bycatch",
     variable = names(bycatch_0003_raw)
   ),
   
-  tibble(
+  tibble::tibble(
     dataset = "BYC_0004",
     table = "fishingOperations",
     variable = names(ops_0004_raw)
   ),
   
-  tibble(
+  tibble::tibble(
     dataset = "BYC_0004",
     table = "bycatch",
     variable = names(bycatch_0004_raw)
@@ -342,7 +436,7 @@ column_inventory <- bind_rows(
 )
 
 
-write_csv(
+readr::write_csv(
   column_inventory,
   file.path(
     OUTPUT_00,
@@ -352,10 +446,10 @@ write_csv(
 
 
 # ============================================================
-# 7. RAW TABLE INVENTORY
+# 8. RAW TABLE INVENTORY
 # ============================================================
 
-table_inventory <- tibble(
+table_inventory <- tibble::tibble(
   
   dataset = c(
     "BYC_0002",
@@ -399,7 +493,7 @@ table_inventory <- tibble(
 )
 
 
-write_csv(
+readr::write_csv(
   table_inventory,
   file.path(
     OUTPUT_00,
@@ -413,17 +507,13 @@ cat(
 )
 
 print(
-  table_inventory
+  table_inventory,
+  n = Inf
 )
 
 
 # ============================================================
-# 8. REQUIRED VARIABLES
-# ============================================================
-#
-# We now check the variables we already know are important.
-#
-# No guessing or automatic renaming is done.
+# 9. REQUIRED VARIABLES
 # ============================================================
 
 check_variables <- function(
@@ -454,6 +544,15 @@ check_variables <- function(
       "\n",
       sep = ""
     )
+    
+  } else {
+    
+    cat(
+      "[OK] Required variables found in ",
+      dataset,
+      "\n",
+      sep = ""
+    )
   }
   
   
@@ -463,7 +562,10 @@ check_variables <- function(
 }
 
 
-# Variables common to the operation tables
+# ------------------------------------------------------------
+# BYC_0002 — purse seine
+# No SET/HAUL geometry is expected here.
+# ------------------------------------------------------------
 
 check_variables(
   ops_0002_raw,
@@ -475,138 +577,52 @@ check_variables(
 )
 
 
+# ------------------------------------------------------------
+# BYC_0003 — longline
+# ------------------------------------------------------------
+
 check_variables(
   ops_0003_raw,
   c(
     "operationID",
     "tripID",
-    "set_lon1",
-    "set_lat1",
-    "set_lon2",
-    "set_lat2",
-    "haul_lon1",
-    "haul_lat1",
-    "haul_lon2",
-    "haul_lat2"
+    "setLongitude1",
+    "setLatitude1",
+    "setLongitude2",
+    "setLatitude2",
+    "haulLongitude1",
+    "haulLatitude1",
+    "haulLongitude2",
+    "haulLatitude2"
   ),
   "BYC_0003 fishingOperations"
 )
 
+
+# ------------------------------------------------------------
+# BYC_0004 — longline
+# ------------------------------------------------------------
 
 check_variables(
   ops_0004_raw,
   c(
     "operationID",
     "tripID",
-    "set_lon1",
-    "set_lat1",
-    "set_lon2",
-    "set_lat2",
-    "haul_lon1",
-    "haul_lat1",
-    "haul_lon2",
-    "haul_lat2"
+    "setLongitude1",
+    "setLatitude1",
+    "setLongitude2",
+    "setLatitude2",
+    "haulLongitude1",
+    "haulLatitude1",
+    "haulLongitude2",
+    "haulLatitude2"
   ),
   "BYC_0004 fishingOperations"
 )
 
 
 # ============================================================
-# 9. HELPER: FIRST EXISTING COLUMN
-#
-# Only used for exploratory summaries where the raw datasets
-# may use slightly different names.
-# ============================================================
-
-first_existing <- function(
-    dat,
-    candidates
-) {
-  
-  found <- candidates[
-    candidates %in% names(dat)
-  ]
-  
-  
-  if (length(found) == 0) {
-    return(
-      NA_character_
-    )
-  }
-  
-  
-  found[1]
-}
-
-
-# ============================================================
-# 10. IDENTIFY BASIC VARIABLES
-# ============================================================
-
-get_basic_columns <- function(dat) {
-  
-  list(
-    
-    operation = first_existing(
-      dat,
-      c(
-        "operationID",
-        "operation_id"
-      )
-    ),
-    
-    trip = first_existing(
-      dat,
-      c(
-        "tripID",
-        "trip_id"
-      )
-    ),
-    
-    vessel = first_existing(
-      dat,
-      c(
-        "vesselID",
-        "vessel_id"
-      )
-    ),
-    
-    date = first_existing(
-      dat,
-      c(
-        "fishing_date",
-        "date",
-        "operationDate",
-        "setDate"
-      )
-    ),
-    
-    year = first_existing(
-      dat,
-      c(
-        "year",
-        "fishingYear"
-      )
-    )
-  )
-}
-
-
-basic_0002 <- get_basic_columns(
-  ops_0002_raw
-)
-
-basic_0003 <- get_basic_columns(
-  ops_0003_raw
-)
-
-basic_0004 <- get_basic_columns(
-  ops_0004_raw
-)
-
-
-# ============================================================
-# 11. DATASET INVENTORY
+# 10. BASIC DATASET INVENTORY
 # ============================================================
 
 safe_n_distinct <- function(
@@ -614,7 +630,7 @@ safe_n_distinct <- function(
     variable
 ) {
   
-  if (is.na(variable)) {
+  if (!variable %in% names(dat)) {
     return(
       NA_integer_
     )
@@ -628,7 +644,7 @@ safe_n_distinct <- function(
 }
 
 
-dataset_inventory <- tibble(
+dataset_inventory <- tibble::tibble(
   
   dataset = c(
     "BYC_0002",
@@ -651,51 +667,81 @@ dataset_inventory <- tibble(
   unique_operationID = c(
     safe_n_distinct(
       ops_0002_raw,
-      basic_0002$operation
+      "operationID"
     ),
     safe_n_distinct(
       ops_0003_raw,
-      basic_0003$operation
+      "operationID"
     ),
     safe_n_distinct(
       ops_0004_raw,
-      basic_0004$operation
+      "operationID"
     )
   ),
   
   trips = c(
     safe_n_distinct(
       ops_0002_raw,
-      basic_0002$trip
+      "tripID"
     ),
     safe_n_distinct(
       ops_0003_raw,
-      basic_0003$trip
+      "tripID"
     ),
     safe_n_distinct(
       ops_0004_raw,
-      basic_0004$trip
+      "tripID"
     )
   ),
   
   vessels = c(
     safe_n_distinct(
       ops_0002_raw,
-      basic_0002$vessel
+      "vesselID"
     ),
     safe_n_distinct(
       ops_0003_raw,
-      basic_0003$vessel
+      "vesselID"
     ),
     safe_n_distinct(
       ops_0004_raw,
-      basic_0004$vessel
+      "vesselID"
+    )
+  ),
+  
+  min_year = c(
+    min(
+      ops_0002_raw$year,
+      na.rm = TRUE
+    ),
+    min(
+      ops_0003_raw$year,
+      na.rm = TRUE
+    ),
+    min(
+      ops_0004_raw$year,
+      na.rm = TRUE
+    )
+  ),
+  
+  max_year = c(
+    max(
+      ops_0002_raw$year,
+      na.rm = TRUE
+    ),
+    max(
+      ops_0003_raw$year,
+      na.rm = TRUE
+    ),
+    max(
+      ops_0004_raw$year,
+      na.rm = TRUE
     )
   )
 )
 
 
-write_csv(
+readr::write_csv(
   dataset_inventory,
   file.path(
     OUTPUT_00,
@@ -709,15 +755,72 @@ cat(
 )
 
 print(
-  dataset_inventory
+  dataset_inventory,
+  width = Inf
+)
+
+
+# ============================================================
+# 11. DUPLICATE OPERATION-ID AUDIT
+# ============================================================
+
+duplicate_operation_audit <- dplyr::bind_rows(
+  
+  ops_0002_raw %>%
+    count(
+      operationID,
+      name = "n"
+    ) %>%
+    filter(
+      n > 1
+    ) %>%
+    mutate(
+      dataset = "BYC_0002"
+    ),
+  
+  ops_0003_raw %>%
+    count(
+      operationID,
+      name = "n"
+    ) %>%
+    filter(
+      n > 1
+    ) %>%
+    mutate(
+      dataset = "BYC_0003"
+    ),
+  
+  ops_0004_raw %>%
+    count(
+      operationID,
+      name = "n"
+    ) %>%
+    filter(
+      n > 1
+    ) %>%
+    mutate(
+      dataset = "BYC_0004"
+    )
+  
+) %>%
+  select(
+    dataset,
+    operationID,
+    n
+  )
+
+
+readr::write_csv(
+  duplicate_operation_audit,
+  file.path(
+    OUTPUT_00,
+    "duplicate_operationID_audit.csv"
+  )
 )
 
 
 # ============================================================
 # 12. BYCATCH → OPERATION-ID AUDIT
-#
-# Before joining anything we need to know whether bycatch
-# records refer to valid fishing operations.
 # ============================================================
 
 audit_bycatch_ids <- function(
@@ -732,11 +835,13 @@ audit_bycatch_ids <- function(
   ) {
     
     return(
-      tibble(
+      tibble::tibble(
         dataset = dataset,
+        fishing_operations = nrow(operations),
         bycatch_rows = nrow(bycatch),
         bycatch_unique_operations = NA_integer_,
         operations_with_bycatch_record = NA_integer_,
+        operations_without_bycatch_record = NA_integer_,
         bycatch_operation_ids_not_in_fishing_operations = NA_integer_
       )
     )
@@ -761,9 +866,13 @@ audit_bycatch_ids <- function(
   )
   
   
-  tibble(
+  tibble::tibble(
     
     dataset = dataset,
+    
+    fishing_operations = length(
+      operation_ids
+    ),
     
     bycatch_rows = nrow(
       bycatch
@@ -777,6 +886,10 @@ audit_bycatch_ids <- function(
       operation_ids %in% bycatch_ids
     ),
     
+    operations_without_bycatch_record = sum(
+      !operation_ids %in% bycatch_ids
+    ),
+    
     bycatch_operation_ids_not_in_fishing_operations = sum(
       !bycatch_ids %in% operation_ids
     )
@@ -784,7 +897,7 @@ audit_bycatch_ids <- function(
 }
 
 
-bycatch_id_audit <- bind_rows(
+bycatch_id_audit <- dplyr::bind_rows(
   
   audit_bycatch_ids(
     ops_0002_raw,
@@ -806,7 +919,7 @@ bycatch_id_audit <- bind_rows(
 )
 
 
-write_csv(
+readr::write_csv(
   bycatch_id_audit,
   file.path(
     OUTPUT_00,
@@ -820,12 +933,51 @@ cat(
 )
 
 print(
-  bycatch_id_audit
+  bycatch_id_audit,
+  width = Inf
 )
 
 
 # ============================================================
-# 13. COORDINATE VALIDITY HELPER
+# 13. CREATE WORKING GEOMETRY COPIES
+#
+# IMPORTANT:
+# Raw objects remain untouched.
+#
+# BYC_0003 and BYC_0004 use exactly the same raw names for
+# the principal SET/HAUL coordinates.
+# ============================================================
+
+ops_0003_geometry <- ops_0003_raw %>%
+  
+  dplyr::rename(
+    set_lon1 = setLongitude1,
+    set_lat1 = setLatitude1,
+    set_lon2 = setLongitude2,
+    set_lat2 = setLatitude2,
+    haul_lon1 = haulLongitude1,
+    haul_lat1 = haulLatitude1,
+    haul_lon2 = haulLongitude2,
+    haul_lat2 = haulLatitude2
+  )
+
+
+ops_0004_geometry <- ops_0004_raw %>%
+  
+  dplyr::rename(
+    set_lon1 = setLongitude1,
+    set_lat1 = setLatitude1,
+    set_lon2 = setLongitude2,
+    set_lat2 = setLatitude2,
+    haul_lon1 = haulLongitude1,
+    haul_lat1 = haulLatitude1,
+    haul_lon2 = haulLongitude2,
+    haul_lat2 = haulLatitude2
+  )
+
+
+# ============================================================
+# 14. COORDINATE VALIDITY HELPERS
 # ============================================================
 
 valid_lon <- function(x) {
@@ -845,7 +997,7 @@ valid_lat <- function(x) {
 
 
 # ============================================================
-# 14. DISTANCE HELPER
+# 15. DISTANCE HELPER
 # ============================================================
 
 distance_km <- function(
@@ -890,7 +1042,10 @@ distance_km <- function(
 
 
 # ============================================================
-# 15. MCP AREA
+# 16. MCP AREA HELPER
+#
+# MCP based on the four SET/HAUL endpoints.
+# Area is returned in km2.
 # ============================================================
 
 mcp_area_one <- function(
@@ -904,7 +1059,7 @@ mcp_area_one <- function(
     haul_lat2
 ) {
   
-  coords <- tibble(
+  coords <- tibble::tibble(
     
     lon = c(
       set_lon1,
@@ -919,15 +1074,14 @@ mcp_area_one <- function(
       haul_lat1,
       haul_lat2
     )
-    
   ) %>%
     
-    filter(
+    dplyr::filter(
       valid_lon(lon),
       valid_lat(lat)
     ) %>%
     
-    distinct()
+    dplyr::distinct()
   
   
   if (nrow(coords) < 3) {
@@ -941,6 +1095,7 @@ mcp_area_one <- function(
   mean_lon <- mean(
     coords$lon
   )
+  
   
   mean_lat <- mean(
     coords$lat
@@ -1013,7 +1168,7 @@ mcp_area_one <- function(
 
 
 # ============================================================
-# 16. PREPARE LONGLINE GEOMETRY
+# 17. PREPARE LONGLINE GEOMETRY
 # ============================================================
 
 prepare_longline_geometry <- function(
@@ -1049,16 +1204,39 @@ prepare_longline_geometry <- function(
           missing,
           collapse = ", "
         )
-      )
+      ),
+      call. = FALSE
     )
   }
   
   
   out <- dat %>%
     
-    mutate(
+    dplyr::mutate(
       
       dataset = dataset,
+      
+      valid_set1 =
+        valid_lon(set_lon1) &
+        valid_lat(set_lat1),
+      
+      valid_set2 =
+        valid_lon(set_lon2) &
+        valid_lat(set_lat2),
+      
+      valid_haul1 =
+        valid_lon(haul_lon1) &
+        valid_lat(haul_lat1),
+      
+      valid_haul2 =
+        valid_lon(haul_lon2) &
+        valid_lat(haul_lat2),
+      
+      valid_all_four_points =
+        valid_set1 &
+        valid_set2 &
+        valid_haul1 &
+        valid_haul2,
       
       set_length_km = distance_km(
         set_lon1,
@@ -1156,7 +1334,7 @@ prepare_longline_geometry <- function(
   
   
   # ----------------------------------------------------------
-  # SET–HAUL displacement
+  # SET → HAUL midpoint displacement
   # ----------------------------------------------------------
   
   out$set_haul_displacement_km <- distance_km(
@@ -1213,111 +1391,170 @@ prepare_longline_geometry <- function(
 }
 
 
+# ============================================================
+# 18. CALCULATE LONGLINE GEOMETRY
+# ============================================================
+
+cat(
+  "\nCalculating BYC_0003 geometry...\n"
+)
+
+
 longline_0003 <- prepare_longline_geometry(
-  ops_0003_raw,
+  ops_0003_geometry,
   "BYC_0003"
 )
 
 
+cat(
+  "Calculating BYC_0004 geometry...\n"
+)
+
+
 longline_0004 <- prepare_longline_geometry(
-  ops_0004_raw,
+  ops_0004_geometry,
   "BYC_0004"
 )
 
 
-longline_all <- bind_rows(
+longline_all <- dplyr::bind_rows(
   longline_0003,
   longline_0004
 )
 
 
 # ============================================================
-# 17. GEOMETRY SUMMARY
+# 19. GEOMETRY SUMMARY
 # ============================================================
+
+safe_quantile <- function(
+    x,
+    probability
+) {
+  
+  x <- x[
+    is.finite(
+      x
+    )
+  ]
+  
+  
+  if (length(x) == 0) {
+    return(
+      NA_real_
+    )
+  }
+  
+  
+  as.numeric(
+    stats::quantile(
+      x,
+      probability,
+      na.rm = TRUE
+    )
+  )
+}
+
+
+safe_median <- function(x) {
+  
+  x <- x[
+    is.finite(
+      x
+    )
+  ]
+  
+  
+  if (length(x) == 0) {
+    return(
+      NA_real_
+    )
+  }
+  
+  
+  stats::median(
+    x,
+    na.rm = TRUE
+  )
+}
+
 
 geometry_summary <- longline_all %>%
   
-  group_by(
+  dplyr::group_by(
     dataset
   ) %>%
   
-  summarise(
+  dplyr::summarise(
     
-    operations = n(),
+    operations = dplyr::n(),
     
-    set_length_median_km = median(
+    operations_with_all_four_points = sum(
+      valid_all_four_points,
+      na.rm = TRUE
+    ),
+    
+    set_length_median_km = safe_median(
+      set_length_km
+    ),
+    
+    set_length_p95_km = safe_quantile(
       set_length_km,
-      na.rm = TRUE
+      0.95
     ),
     
-    set_length_p95_km = quantile(
+    set_length_p99_km = safe_quantile(
       set_length_km,
-      0.95,
-      na.rm = TRUE
+      0.99
     ),
     
-    set_length_p99_km = quantile(
-      set_length_km,
-      0.99,
-      na.rm = TRUE
+    haul_length_median_km = safe_median(
+      haul_length_km
     ),
     
-    haul_length_median_km = median(
+    haul_length_p95_km = safe_quantile(
       haul_length_km,
-      na.rm = TRUE
+      0.95
     ),
     
-    haul_length_p95_km = quantile(
+    haul_length_p99_km = safe_quantile(
       haul_length_km,
-      0.95,
-      na.rm = TRUE
+      0.99
     ),
     
-    haul_length_p99_km = quantile(
-      haul_length_km,
-      0.99,
-      na.rm = TRUE
+    displacement_median_km = safe_median(
+      set_haul_displacement_km
     ),
     
-    displacement_median_km = median(
+    displacement_p95_km = safe_quantile(
       set_haul_displacement_km,
-      na.rm = TRUE
+      0.95
     ),
     
-    displacement_p95_km = quantile(
+    displacement_p99_km = safe_quantile(
       set_haul_displacement_km,
-      0.95,
-      na.rm = TRUE
+      0.99
     ),
     
-    displacement_p99_km = quantile(
-      set_haul_displacement_km,
-      0.99,
-      na.rm = TRUE
+    mcp_median_km2 = safe_median(
+      mcp_area_km2
     ),
     
-    mcp_median_km2 = median(
+    mcp_p95_km2 = safe_quantile(
       mcp_area_km2,
-      na.rm = TRUE
+      0.95
     ),
     
-    mcp_p95_km2 = quantile(
+    mcp_p99_km2 = safe_quantile(
       mcp_area_km2,
-      0.95,
-      na.rm = TRUE
-    ),
-    
-    mcp_p99_km2 = quantile(
-      mcp_area_km2,
-      0.99,
-      na.rm = TRUE
+      0.99
     ),
     
     .groups = "drop"
   )
 
 
-write_csv(
+readr::write_csv(
   geometry_summary,
   file.path(
     OUTPUT_00,
@@ -1337,52 +1574,48 @@ print(
 
 
 # ============================================================
-# 18. P99 QC THRESHOLDS
+# 20. P99 QC THRESHOLDS
 #
-# Thresholds are calculated separately for each dataset.
+# Thresholds calculated independently for BYC_0003 and
+# BYC_0004.
 #
-# IMPORTANT:
-# Being above P99 does NOT mean an operation is automatically
-# wrong. It means "inspect this operation".
+# Above P99 = inspect.
+# Above P99 != automatically exclude.
 # ============================================================
 
 qc_thresholds <- longline_all %>%
   
-  group_by(
+  dplyr::group_by(
     dataset
   ) %>%
   
-  summarise(
+  dplyr::summarise(
     
-    p99_set_length_km = quantile(
+    p99_set_length_km = safe_quantile(
       set_length_km,
-      0.99,
-      na.rm = TRUE
+      0.99
     ),
     
-    p99_haul_length_km = quantile(
+    p99_haul_length_km = safe_quantile(
       haul_length_km,
-      0.99,
-      na.rm = TRUE
+      0.99
     ),
     
-    p99_displacement_km = quantile(
+    p99_displacement_km = safe_quantile(
       set_haul_displacement_km,
-      0.99,
-      na.rm = TRUE
+      0.99
     ),
     
-    p99_mcp_area_km2 = quantile(
+    p99_mcp_area_km2 = safe_quantile(
       mcp_area_km2,
-      0.99,
-      na.rm = TRUE
+      0.99
     ),
     
     .groups = "drop"
   )
 
 
-write_csv(
+readr::write_csv(
   qc_thresholds,
   file.path(
     OUTPUT_00,
@@ -1392,21 +1625,27 @@ write_csv(
 
 
 # ============================================================
-# 19. FLAG P99 OPERATIONS
+# 21. FLAG P99 OPERATIONS
 # ============================================================
 
 longline_qc <- longline_all %>%
   
-  left_join(
+  dplyr::left_join(
     qc_thresholds,
     by = "dataset"
   ) %>%
   
-  mutate(
+  dplyr::mutate(
+    
+    flag_invalid_coordinates =
+      !valid_all_four_points,
     
     flag_set_length =
       is.finite(
         set_length_km
+      ) &
+      is.finite(
+        p99_set_length_km
       ) &
       set_length_km >
       p99_set_length_km,
@@ -1415,12 +1654,18 @@ longline_qc <- longline_all %>%
       is.finite(
         haul_length_km
       ) &
+      is.finite(
+        p99_haul_length_km
+      ) &
       haul_length_km >
       p99_haul_length_km,
     
     flag_displacement =
       is.finite(
         set_haul_displacement_km
+      ) &
+      is.finite(
+        p99_displacement_km
       ) &
       set_haul_displacement_km >
       p99_displacement_km,
@@ -1429,16 +1674,23 @@ longline_qc <- longline_all %>%
       is.finite(
         mcp_area_km2
       ) &
+      is.finite(
+        p99_mcp_area_km2
+      ) &
       mcp_area_km2 >
       p99_mcp_area_km2,
     
     qc_flag =
+      flag_invalid_coordinates |
       flag_set_length |
       flag_haul_length |
       flag_displacement |
       flag_mcp,
     
     n_qc_flags =
+      as.integer(
+        flag_invalid_coordinates
+      ) +
       as.integer(
         flag_set_length
       ) +
@@ -1455,7 +1707,7 @@ longline_qc <- longline_all %>%
 
 
 # ============================================================
-# 20. SAVE FLAGGED OPERATIONS
+# 22. SAVE FLAGGED OPERATIONS
 # ============================================================
 
 id_columns <- intersect(
@@ -1476,13 +1728,13 @@ id_columns <- intersect(
 
 spatial_qc_operations <- longline_qc %>%
   
-  filter(
+  dplyr::filter(
     qc_flag
   ) %>%
   
-  select(
+  dplyr::select(
     
-    all_of(
+    dplyr::all_of(
       id_columns
     ),
     
@@ -1501,6 +1753,7 @@ spatial_qc_operations <- longline_qc %>%
     set_haul_displacement_km,
     mcp_area_km2,
     
+    flag_invalid_coordinates,
     flag_set_length,
     flag_haul_length,
     flag_displacement,
@@ -1509,18 +1762,18 @@ spatial_qc_operations <- longline_qc %>%
     n_qc_flags
   ) %>%
   
-  arrange(
+  dplyr::arrange(
     dataset,
-    desc(
+    dplyr::desc(
       n_qc_flags
     ),
-    desc(
+    dplyr::desc(
       set_haul_displacement_km
     )
   )
 
 
-write_csv(
+readr::write_csv(
   spatial_qc_operations,
   file.path(
     OUTPUT_00,
@@ -1530,7 +1783,7 @@ write_csv(
 
 
 cat(
-  "\nP99 FLAGGED OPERATIONS\n\n"
+  "\nP99 / COORDINATE FLAGGED OPERATIONS\n\n"
 )
 
 print(
@@ -1541,97 +1794,284 @@ print(
 
 
 # ============================================================
-# 21. QC BY TRIP
+# 23. QC BY TRIP
 # ============================================================
 
-if ("tripID" %in% names(longline_qc)) {
+spatial_qc_trips <- longline_qc %>%
   
-  spatial_qc_trips <- longline_qc %>%
+  dplyr::group_by(
+    dataset,
+    tripID
+  ) %>%
+  
+  dplyr::summarise(
     
-    group_by(
-      dataset,
-      tripID
-    ) %>%
+    operations = dplyr::n(),
     
-    summarise(
-      
-      operations = n(),
-      
-      flagged_operations = sum(
+    flagged_operations = sum(
+      qc_flag,
+      na.rm = TRUE
+    ),
+    
+    flagged_percent =
+      100 *
+      mean(
         qc_flag,
         na.rm = TRUE
       ),
-      
-      flagged_percent =
-        100 *
-        mean(
-          qc_flag,
-          na.rm = TRUE
-        ),
-      
-      max_set_length_km = max(
-        set_length_km,
-        na.rm = TRUE
-      ),
-      
-      max_haul_length_km = max(
-        haul_length_km,
-        na.rm = TRUE
-      ),
-      
-      max_displacement_km = max(
-        set_haul_displacement_km,
-        na.rm = TRUE
-      ),
-      
-      max_mcp_area_km2 = max(
-        mcp_area_km2,
-        na.rm = TRUE
-      ),
-      
-      .groups = "drop"
-    ) %>%
     
-    filter(
-      flagged_operations > 0
-    ) %>%
-    
-    arrange(
-      dataset,
-      desc(
-        flagged_operations
-      )
-    )
+    .groups = "drop"
+  ) %>%
   
+  dplyr::filter(
+    flagged_operations > 0
+  ) %>%
   
-  write_csv(
-    spatial_qc_trips,
-    file.path(
-      OUTPUT_00,
-      "spatial_qc_trips.csv"
+  dplyr::arrange(
+    dataset,
+    dplyr::desc(
+      flagged_operations
+    ),
+    dplyr::desc(
+      flagged_percent
     )
   )
-  
-  
-  cat(
-    "\nTRIPS CONTAINING P99 FLAGS\n\n"
+
+
+readr::write_csv(
+  spatial_qc_trips,
+  file.path(
+    OUTPUT_00,
+    "spatial_qc_trips.csv"
   )
-  
-  print(
-    spatial_qc_trips,
-    n = Inf,
-    width = Inf
-  )
-}
+)
+
+
+cat(
+  "\nTRIPS CONTAINING QC FLAGS\n\n"
+)
+
+print(
+  spatial_qc_trips,
+  n = Inf,
+  width = Inf
+)
 
 
 # ============================================================
-# 22. HISTOGRAMS OF GEOMETRY
+# 24. QC SUMMARY
+# ============================================================
+
+qc_summary <- longline_qc %>%
+  
+  dplyr::group_by(
+    dataset
+  ) %>%
+  
+  dplyr::summarise(
+    
+    operations = dplyr::n(),
+    
+    flagged_operations = sum(
+      qc_flag,
+      na.rm = TRUE
+    ),
+    
+    flagged_percent =
+      100 *
+      mean(
+        qc_flag,
+        na.rm = TRUE
+      ),
+    
+    invalid_coordinates = sum(
+      flag_invalid_coordinates,
+      na.rm = TRUE
+    ),
+    
+    flag_set_length = sum(
+      flag_set_length,
+      na.rm = TRUE
+    ),
+    
+    flag_haul_length = sum(
+      flag_haul_length,
+      na.rm = TRUE
+    ),
+    
+    flag_displacement = sum(
+      flag_displacement,
+      na.rm = TRUE
+    ),
+    
+    flag_mcp = sum(
+      flag_mcp,
+      na.rm = TRUE
+    ),
+    
+    .groups = "drop"
+  )
+
+
+readr::write_csv(
+  qc_summary,
+  file.path(
+    OUTPUT_00,
+    "spatial_qc_summary.csv"
+  )
+)
+
+
+cat(
+  "\nSPATIAL QC SUMMARY\n\n"
+)
+
+print(
+  qc_summary,
+  width = Inf
+)
+
+
+# ============================================================
+# 25. SAVE FULL LONGLINE QC TABLE
+#
+# Diagnostic only.
+# This is NOT the modelling dataset.
+# ============================================================
+
+readr::write_csv(
+  longline_qc,
+  file.path(
+    OUTPUT_00,
+    "longline_operations_with_QC.csv"
+  )
+)
+
+
+# ============================================================
+# 26. OPERATIONS BY YEAR
+# ============================================================
+
+operations_by_year <- dplyr::bind_rows(
+  
+  ops_0002_raw %>%
+    dplyr::count(
+      year,
+      name = "operations"
+    ) %>%
+    dplyr::mutate(
+      dataset = "BYC_0002"
+    ),
+  
+  ops_0003_raw %>%
+    dplyr::count(
+      year,
+      name = "operations"
+    ) %>%
+    dplyr::mutate(
+      dataset = "BYC_0003"
+    ),
+  
+  ops_0004_raw %>%
+    dplyr::count(
+      year,
+      name = "operations"
+    ) %>%
+    dplyr::mutate(
+      dataset = "BYC_0004"
+    )
+  
+) %>%
+  
+  dplyr::select(
+    dataset,
+    year,
+    operations
+  ) %>%
+  
+  dplyr::arrange(
+    dataset,
+    year
+  )
+
+
+readr::write_csv(
+  operations_by_year,
+  file.path(
+    OUTPUT_00,
+    "operations_by_year.csv"
+  )
+)
+
+
+# ============================================================
+# 27. FIGURE — OPERATIONS BY YEAR
+# ============================================================
+
+p_year <- ggplot2::ggplot(
+  
+  operations_by_year,
+  
+  ggplot2::aes(
+    x = year,
+    y = operations
+  )
+  
+) +
+  
+  ggplot2::geom_col(
+    width = 0.8
+  ) +
+  
+  ggplot2::facet_wrap(
+    ~dataset,
+    scales = "free_y"
+  ) +
+  
+  ggplot2::labs(
+    title = "Temporal sampling coverage",
+    subtitle = "Raw IEO fishing operations",
+    x = "Year",
+    y = "Fishing operations"
+  ) +
+  
+  ggplot2::theme_bw(
+    base_size = 11
+  ) +
+  
+  ggplot2::theme(
+    panel.grid.minor =
+      ggplot2::element_blank(),
+    
+    plot.title =
+      ggplot2::element_text(
+        face = "bold"
+      )
+  )
+
+
+ggplot2::ggsave(
+  
+  file.path(
+    FIG_DIR,
+    "01_operations_by_year.png"
+  ),
+  
+  p_year,
+  
+  width = 10,
+  height = 5,
+  dpi = 300
+)
+
+
+# ============================================================
+# 28. FIGURE — GEOMETRY DISTRIBUTIONS
 # ============================================================
 
 geometry_long <- longline_all %>%
   
-  select(
+  dplyr::select(
     dataset,
     set_length_km,
     haul_length_km,
@@ -1639,7 +2079,7 @@ geometry_long <- longline_all %>%
     mcp_area_km2
   ) %>%
   
-  pivot_longer(
+  tidyr::pivot_longer(
     
     cols = c(
       set_length_km,
@@ -1653,68 +2093,68 @@ geometry_long <- longline_all %>%
     values_to = "value"
   ) %>%
   
-  filter(
+  dplyr::filter(
     is.finite(
       value
     )
   )
 
 
-p_geometry <- ggplot(
+p_geometry <- ggplot2::ggplot(
   
   geometry_long,
   
-  aes(
+  ggplot2::aes(
     x = value
   )
   
 ) +
   
-  geom_histogram(
+  ggplot2::geom_histogram(
     bins = 50,
     fill = "grey35",
     colour = "white",
     linewidth = 0.15
   ) +
   
-  facet_grid(
+  ggplot2::facet_grid(
     metric ~ dataset,
     scales = "free"
   ) +
   
-  labs(
+  ggplot2::labs(
     title = "Fishing-operation geometry",
     subtitle = "Raw longline datasets — no observations removed",
     x = NULL,
     y = "Operations"
   ) +
   
-  theme_bw(
+  ggplot2::theme_bw(
     base_size = 11
   ) +
   
-  theme(
+  ggplot2::theme(
     
     panel.grid.minor =
-      element_blank(),
+      ggplot2::element_blank(),
     
     strip.background =
-      element_rect(
+      ggplot2::element_rect(
         fill = "grey95"
       ),
     
     plot.title =
-      element_text(
+      ggplot2::element_text(
         face = "bold"
       )
   )
 
 
-ggsave(
+ggplot2::ggsave(
   
   file.path(
     FIG_DIR,
-    "01_longline_geometry_distributions.png"
+    "02_longline_geometry_distributions.png"
   ),
   
   p_geometry,
@@ -1726,70 +2166,69 @@ ggsave(
 
 
 # ============================================================
-# 23. LOG-SCALE GEOMETRY DISTRIBUTIONS
-#
-# Useful because extreme geometries compress the normal plots.
+# 29. FIGURE — LOG-SCALE GEOMETRY DISTRIBUTIONS
 # ============================================================
 
-p_geometry_log <- ggplot(
+p_geometry_log <- ggplot2::ggplot(
   
   geometry_long %>%
-    filter(
+    dplyr::filter(
       value > 0
     ),
   
-  aes(
+  ggplot2::aes(
     x = value
   )
   
 ) +
   
-  geom_histogram(
+  ggplot2::geom_histogram(
     bins = 50,
     fill = "grey35",
     colour = "white",
     linewidth = 0.15
   ) +
   
-  scale_x_log10() +
+  ggplot2::scale_x_log10() +
   
-  facet_grid(
+  ggplot2::facet_grid(
     metric ~ dataset,
     scales = "free"
   ) +
   
-  labs(
+  ggplot2::labs(
     title = "Fishing-operation geometry — log scale",
-    subtitle = "Useful for visualising the tails of the distributions",
+    subtitle = "Tail structure of the longline geometry metrics",
     x = NULL,
     y = "Operations"
   ) +
   
-  theme_bw(
+  ggplot2::theme_bw(
     base_size = 11
   ) +
   
-  theme(
+  ggplot2::theme(
+    
     panel.grid.minor =
-      element_blank(),
+      ggplot2::element_blank(),
     
     strip.background =
-      element_rect(
+      ggplot2::element_rect(
         fill = "grey95"
       ),
     
     plot.title =
-      element_text(
+      ggplot2::element_text(
         face = "bold"
       )
   )
 
 
-ggsave(
+ggplot2::ggsave(
   
   file.path(
     FIG_DIR,
-    "02_longline_geometry_distributions_log.png"
+    "03_longline_geometry_distributions_log.png"
   ),
   
   p_geometry_log,
@@ -1801,47 +2240,7 @@ ggsave(
 
 
 # ============================================================
-# 24. MAP DATA FOR LONGLINE OPERATIONS
-# ============================================================
-
-map_longline <- longline_qc %>%
-  
-  mutate(
-    
-    set_mid_lon = rowMeans(
-      cbind(
-        set_lon1,
-        set_lon2
-      ),
-      na.rm = TRUE
-    ),
-    
-    set_mid_lat = rowMeans(
-      cbind(
-        set_lat1,
-        set_lat2
-      ),
-      na.rm = TRUE
-    )
-  )
-
-
-map_longline$set_mid_lon[
-  !is.finite(
-    map_longline$set_mid_lon
-  )
-] <- NA_real_
-
-
-map_longline$set_mid_lat[
-  !is.finite(
-    map_longline$set_mid_lat
-  )
-] <- NA_real_
-
-
-# ============================================================
-# 25. WORLD MAP
+# 30. WORLD MAP
 # ============================================================
 
 world <- rnaturalearth::ne_countries(
@@ -1851,23 +2250,35 @@ world <- rnaturalearth::ne_countries(
 
 
 # ============================================================
-# 26. OVERALL LONGLINE SPATIAL COVERAGE
+# 31. FIGURE — LONGLINE SPATIAL COVERAGE
 # ============================================================
 
-p_longline_map <- ggplot() +
+map_longline <- longline_qc %>%
   
-  geom_sf(
+  dplyr::filter(
+    is.finite(
+      set_mid_lon
+    ),
+    is.finite(
+      set_mid_lat
+    )
+  )
+
+
+p_longline_map <- ggplot2::ggplot() +
+  
+  ggplot2::geom_sf(
     data = world,
     fill = "grey96",
     colour = "grey65",
     linewidth = 0.2
   ) +
   
-  geom_point(
+  ggplot2::geom_point(
     
     data = map_longline,
     
-    aes(
+    ggplot2::aes(
       x = set_mid_lon,
       y = set_mid_lat,
       colour = qc_flag
@@ -1877,57 +2288,57 @@ p_longline_map <- ggplot() +
     alpha = 0.7
   ) +
   
-  scale_colour_manual(
+  ggplot2::scale_colour_manual(
     values = c(
       "FALSE" = "grey30",
       "TRUE" = "red"
     ),
     labels = c(
-      "FALSE" = "Within P99",
-      "TRUE" = "P99 flag"
+      "FALSE" = "Not flagged",
+      "TRUE" = "QC flag"
     ),
     name = NULL
   ) +
   
-  facet_wrap(
+  ggplot2::facet_wrap(
     ~dataset
   ) +
   
-  coord_sf(
+  ggplot2::coord_sf(
     datum = NA
   ) +
   
-  labs(
+  ggplot2::labs(
     title = "Spatial coverage of longline operations",
-    subtitle = "Red = operation flagged by at least one P99 geometry metric",
+    subtitle = "Red = operation flagged by invalid coordinates or a P99 geometry metric",
     x = "Longitude",
     y = "Latitude"
   ) +
   
-  theme_bw(
+  ggplot2::theme_bw(
     base_size = 11
   ) +
   
-  theme(
+  ggplot2::theme(
     
     panel.grid.minor =
-      element_blank(),
+      ggplot2::element_blank(),
     
     legend.position =
       "bottom",
     
     plot.title =
-      element_text(
+      ggplot2::element_text(
         face = "bold"
       )
   )
 
 
-ggsave(
+ggplot2::ggsave(
   
   file.path(
     FIG_DIR,
-    "03_longline_spatial_coverage_QC.png"
+    "04_longline_spatial_coverage_QC.png"
   ),
   
   p_longline_map,
@@ -1939,22 +2350,16 @@ ggsave(
 
 
 # ============================================================
-# 27. MAP INDIVIDUAL FLAGGED OPERATIONS
+# 32. INDIVIDUAL MAPS OF FLAGGED OPERATIONS
 #
-# One PNG per flagged operation.
-#
-# This is deliberately NOT faceted because coord_sf() and
-# free scales caused problems in the previous exploratory code.
+# One file per flagged operation.
+# No faceting with free scales.
 # ============================================================
 
 flagged_for_maps <- longline_qc %>%
   
-  filter(
+  dplyr::filter(
     qc_flag
-  ) %>%
-  
-  mutate(
-    qc_map_id = row_number()
   )
 
 
@@ -1998,17 +2403,26 @@ if (nrow(flagged_for_maps) > 0) {
     )
     
     
-    all_lon <- all_lon[
+    valid_points <-
       is.finite(
         all_lon
-      )
+      ) &
+      is.finite(
+        all_lat
+      ) &
+      all_lon >= -180 &
+      all_lon <= 180 &
+      all_lat >= -90 &
+      all_lat <= 90
+    
+    
+    all_lon <- all_lon[
+      valid_points
     ]
     
     
     all_lat <- all_lat[
-      is.finite(
-        all_lat
-      )
+      valid_points
     ]
     
     
@@ -2046,20 +2460,32 @@ if (nrow(flagged_for_maps) > 0) {
     )
     
     
-    p <- ggplot() +
+    plot_points <- tibble::tibble(
+      lon = all_lon,
+      lat = all_lat
+    )
+    
+    
+    p <- ggplot2::ggplot() +
       
-      geom_sf(
+      ggplot2::geom_sf(
         data = world,
         fill = "grey96",
         colour = "grey65",
         linewidth = 0.2
       ) +
       
-      geom_segment(
+      ggplot2::geom_segment(
         
-        data = x,
+        data = x %>%
+          dplyr::filter(
+            valid_lon(set_lon1),
+            valid_lat(set_lat1),
+            valid_lon(set_lon2),
+            valid_lat(set_lat2)
+          ),
         
-        aes(
+        ggplot2::aes(
           x = set_lon1,
           y = set_lat1,
           xend = set_lon2,
@@ -2069,11 +2495,17 @@ if (nrow(flagged_for_maps) > 0) {
         linewidth = 1
       ) +
       
-      geom_segment(
+      ggplot2::geom_segment(
         
-        data = x,
+        data = x %>%
+          dplyr::filter(
+            valid_lon(haul_lon1),
+            valid_lat(haul_lat1),
+            valid_lon(haul_lon2),
+            valid_lat(haul_lat2)
+          ),
         
-        aes(
+        ggplot2::aes(
           x = haul_lon1,
           y = haul_lat1,
           xend = haul_lon2,
@@ -2084,14 +2516,11 @@ if (nrow(flagged_for_maps) > 0) {
         linetype = 2
       ) +
       
-      geom_point(
+      ggplot2::geom_point(
         
-        data = tibble(
-          lon = all_lon,
-          lat = all_lat
-        ),
+        data = plot_points,
         
-        aes(
+        ggplot2::aes(
           x = lon,
           y = lat
         ),
@@ -2099,7 +2528,7 @@ if (nrow(flagged_for_maps) > 0) {
         size = 2
       ) +
       
-      coord_sf(
+      ggplot2::coord_sf(
         
         xlim = c(
           lon_range[1] - lon_pad,
@@ -2115,7 +2544,7 @@ if (nrow(flagged_for_maps) > 0) {
         datum = NA
       ) +
       
-      labs(
+      ggplot2::labs(
         
         title = paste0(
           x$dataset,
@@ -2123,8 +2552,7 @@ if (nrow(flagged_for_maps) > 0) {
         ),
         
         subtitle = paste0(
-          "SET = solid | HAUL = dashed | ",
-          "P99 flags = ",
+          "SET = solid | HAUL = dashed | QC flags = ",
           x$n_qc_flags
         ),
         
@@ -2132,16 +2560,17 @@ if (nrow(flagged_for_maps) > 0) {
         y = "Latitude"
       ) +
       
-      theme_bw(
+      ggplot2::theme_bw(
         base_size = 11
       ) +
       
-      theme(
+      ggplot2::theme(
+        
         panel.grid.minor =
-          element_blank(),
+          ggplot2::element_blank(),
         
         plot.title =
-          element_text(
+          ggplot2::element_text(
             face = "bold"
           )
       )
@@ -2149,7 +2578,9 @@ if (nrow(flagged_for_maps) > 0) {
     
     operation_label <- if (
       "operationID" %in% names(x) &&
-      !is.na(x$operationID)
+      !is.na(
+        x$operationID
+      )
     ) {
       
       as.character(
@@ -2165,14 +2596,14 @@ if (nrow(flagged_for_maps) > 0) {
     }
     
     
-    operation_label <- str_replace_all(
+    operation_label <- stringr::str_replace_all(
       operation_label,
       "[^A-Za-z0-9_-]",
       "_"
     )
     
     
-    ggsave(
+    ggplot2::ggsave(
       
       file.path(
         flagged_map_dir,
@@ -2195,232 +2626,127 @@ if (nrow(flagged_for_maps) > 0) {
 
 
 # ============================================================
-# 28. SAMPLE SIZE BY YEAR
+# 33. BYC_0004 ORIGINAL VS CURRENT COORDINATE AUDIT
 #
-# Uses an existing year variable if available.
+# BYC_0004 contains both original* and current coordinates.
+# We do NOT interpret or alter them here.
+#
+# We simply document the *_diff variables already supplied
+# in the raw dataset.
 # ============================================================
 
-year_tables <- list()
-
-
-for (
-  x in list(
-    list(
-      dataset = "BYC_0002",
-      data = ops_0002_raw,
-      basic = basic_0002
-    ),
-    
-    list(
-      dataset = "BYC_0003",
-      data = ops_0003_raw,
-      basic = basic_0003
-    ),
-    
-    list(
-      dataset = "BYC_0004",
-      data = ops_0004_raw,
-      basic = basic_0004
-    )
+diff_variables_0004 <- intersect(
+  
+  c(
+    "set1_longitude_diff",
+    "set1_latitude_diff",
+    "set2_longitude_diff",
+    "set2_latitude_diff",
+    "haul1_longitude_diff",
+    "haul1_latitude_diff",
+    "haul2_longitude_diff",
+    "haul2_latitude_diff"
+  ),
+  
+  names(
+    ops_0004_raw
   )
-) {
+)
+
+
+if (length(diff_variables_0004) > 0) {
   
-  dat <- x$data
-  
-  year_col <- x$basic$year
-  
-  
-  if (!is.na(year_col)) {
+  coordinate_diff_summary_0004 <- purrr::map_dfr(
     
-    tmp <- dat %>%
+    diff_variables_0004,
+    
+    function(variable) {
       
-      transmute(
-        dataset = x$dataset,
-        year = as.integer(
-          .data[[year_col]]
-        )
-      ) %>%
+      x <- ops_0004_raw[[variable]]
       
-      filter(
+      x <- x[
         is.finite(
-          year
+          x
         )
-      ) %>%
+      ]
       
-      count(
-        dataset,
-        year,
-        name = "operations"
+      
+      tibble::tibble(
+        
+        variable = variable,
+        
+        n_available = length(
+          x
+        ),
+        
+        n_nonzero = sum(
+          x != 0,
+          na.rm = TRUE
+        ),
+        
+        median = if (
+          length(x) > 0
+        ) {
+          median(
+            x,
+            na.rm = TRUE
+          )
+        } else {
+          NA_real_
+        },
+        
+        p95_abs = if (
+          length(x) > 0
+        ) {
+          as.numeric(
+            quantile(
+              abs(x),
+              0.95,
+              na.rm = TRUE
+            )
+          )
+        } else {
+          NA_real_
+        },
+        
+        max_abs = if (
+          length(x) > 0
+        ) {
+          max(
+            abs(x),
+            na.rm = TRUE
+          )
+        } else {
+          NA_real_
+        }
       )
-    
-    
-    year_tables[[
-      x$dataset
-    ]] <- tmp
-  }
-}
-
-
-if (length(year_tables) > 0) {
-  
-  operations_by_year <- bind_rows(
-    year_tables
+    }
   )
   
   
-  write_csv(
-    operations_by_year,
+  readr::write_csv(
+    coordinate_diff_summary_0004,
     file.path(
       OUTPUT_00,
-      "operations_by_year.csv"
+      "BYC_0004_original_current_coordinate_diff_summary.csv"
     )
   )
   
   
-  p_year <- ggplot(
-    
-    operations_by_year,
-    
-    aes(
-      x = year,
-      y = operations
-    )
-    
-  ) +
-    
-    geom_col(
-      width = 0.8
-    ) +
-    
-    facet_wrap(
-      ~dataset,
-      scales = "free_y"
-    ) +
-    
-    labs(
-      title = "Temporal sampling coverage",
-      x = "Year",
-      y = "Fishing operations"
-    ) +
-    
-    theme_bw(
-      base_size = 11
-    ) +
-    
-    theme(
-      panel.grid.minor =
-        element_blank(),
-      
-      plot.title =
-        element_text(
-          face = "bold"
-        )
-    )
+  cat(
+    "\nBYC_0004 ORIGINAL / CURRENT COORDINATE DIFF SUMMARY\n\n"
+  )
   
-  
-  ggsave(
-    
-    file.path(
-      FIG_DIR,
-      "04_operations_by_year.png"
-    ),
-    
-    p_year,
-    
-    width = 10,
-    height = 5,
-    dpi = 300
+  print(
+    coordinate_diff_summary_0004,
+    n = Inf,
+    width = Inf
   )
 }
 
 
 # ============================================================
-# 29. QC SUMMARY
-# ============================================================
-
-qc_summary <- longline_qc %>%
-  
-  group_by(
-    dataset
-  ) %>%
-  
-  summarise(
-    
-    operations = n(),
-    
-    flagged_operations = sum(
-      qc_flag,
-      na.rm = TRUE
-    ),
-    
-    flagged_percent =
-      100 *
-      mean(
-        qc_flag,
-        na.rm = TRUE
-      ),
-    
-    flag_set_length = sum(
-      flag_set_length,
-      na.rm = TRUE
-    ),
-    
-    flag_haul_length = sum(
-      flag_haul_length,
-      na.rm = TRUE
-    ),
-    
-    flag_displacement = sum(
-      flag_displacement,
-      na.rm = TRUE
-    ),
-    
-    flag_mcp = sum(
-      flag_mcp,
-      na.rm = TRUE
-    ),
-    
-    .groups = "drop"
-  )
-
-
-write_csv(
-  qc_summary,
-  file.path(
-    OUTPUT_00,
-    "spatial_qc_summary.csv"
-  )
-)
-
-
-cat(
-  "\nSPATIAL QC SUMMARY\n\n"
-)
-
-print(
-  qc_summary,
-  width = Inf
-)
-
-
-# ============================================================
-# 30. SAVE FULL LONGLINE QC TABLE
-#
-# This is NOT modelling data.
-# It is an exploratory diagnostic table.
-# ============================================================
-
-write_csv(
-  longline_qc,
-  file.path(
-    OUTPUT_00,
-    "longline_operations_with_QC.csv"
-  )
-)
-
-
-# ============================================================
-# 31. SESSION INFO
+# 34. SESSION INFO
 # ============================================================
 
 capture.output(
@@ -2435,7 +2761,7 @@ capture.output(
 
 
 # ============================================================
-# 32. FINAL MESSAGE
+# 35. FINAL MESSAGE
 # ============================================================
 
 cat(
@@ -2454,9 +2780,11 @@ cat(
 cat(
   "Main outputs:\n\n",
   
-  "  dataset_inventory.csv\n",
+  "  parsing_summary.csv\n",
   "  raw_column_inventory.csv\n",
   "  raw_table_inventory.csv\n",
+  "  dataset_inventory.csv\n",
+  "  duplicate_operationID_audit.csv\n",
   "  bycatch_operationID_audit.csv\n",
   "  longline_geometry_summary.csv\n",
   "  spatial_qc_thresholds.csv\n",
@@ -2464,6 +2792,8 @@ cat(
   "  spatial_qc_trips.csv\n",
   "  spatial_qc_summary.csv\n",
   "  longline_operations_with_QC.csv\n",
+  "  operations_by_year.csv\n",
+  "  BYC_0004_original_current_coordinate_diff_summary.csv\n",
   "  figures/\n\n",
   
   sep = ""
@@ -2479,7 +2809,7 @@ cat(
 
 
 cat(
-  "Next step after reviewing these outputs:\n",
+  "Next step after reviewing the QC:\n",
   "01_build_standardised_data.R\n\n",
   sep = ""
 )
